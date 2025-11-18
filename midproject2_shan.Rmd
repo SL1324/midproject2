@@ -1,0 +1,35 @@
+---
+title: "midproject2_Shan"
+author: "Shan"
+date: "2025-11-18"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+install.packages("usethis")
+library(usethis)
+```
+
+```{r}
+#  Open GitHub in your browser to create a new PAT
+usethis::create_github_token()
+
+```
+```{r}
+#  Save the new token
+gitcreds::gitcreds_set()
+# Paste the token when prompted, press Enter
+```
+```{r}
+# check git status
+usethis::git_sitrep()
+```
+```{r}
+library(usethis)
+
+usethis::use_github(private = FALSE)
+```
