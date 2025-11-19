@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+#git package
 install.packages("usethis")
 library(usethis)
 ```
@@ -24,12 +25,172 @@ usethis::create_github_token()
 gitcreds::gitcreds_set()
 # Paste the token when prompted, press Enter
 ```
+
+```{r}
+# create new repo in git
+usethis::use_github(private = FALSE)
+```
 ```{r}
 # check git status
 usethis::git_sitrep()
 ```
-```{r}
-library(usethis)
 
-usethis::use_github(private = FALSE)
+```{r}
+#read data files
+aq2018_raw <- read.csv("/Users/lushan/DUke/R-bios721/data_721mid2/AQ_2018.csv")
+aq2019_raw <- read.csv("/Users/lushan/DUke/R-bios721/data_721mid2/AQ_2019.csv")
+aq2020_raw <- read.csv("/Users/lushan/DUke/R-bios721/data_721mid2/AQ_2020.csv")
+```
+```{r}
+# show dataset
+show(aq2018_raw)
+```
+```{r}
+#data clearning function
+clean_aq <- function(dat) {
+  
+  # 1. Rename to include units, and keep date_raw separately
+  dat_clean <- dat |>
+    dplyr::rename(
+      date_raw                 = Date,
+      `Max_CO(ppm)`            = Daily.Max.8.hour.CO.Concentration,
+      `Mean_PM2.5(ug/m3_LC)`   = Daily.Mean.PM2.5.Concentration,
+      `Max_O3(ppm)`            = Daily.Max.8.hour.Ozone.Concentration
+    ) |>
+    dplyr::mutate(
+      # convert to Date class
+      Date = lubridate::mdy(date_raw)
+    ) |>
+    # keep only what we need
+    dplyr::select(Date, `Max_CO(ppm)`, `Mean_PM2.5(ug/m3_LC)`, `Max_O3(ppm)`) |>
+    # remove exact duplicate rows
+    dplyr::distinct()
+  
+  # 2. Set any negative pollutant values to 0
+  pollutant_cols <- c("Max_CO(ppm)", "Mean_PM2.5(ug/m3_LC)", "Max_O3(ppm)")
+  for (v in pollutant_cols) {
+    dat_clean[[v]][dat_clean[[v]] < 0] <- 0
+  }
+  
+  # 3. Average over days with multiple measurements
+  dat_daily <- dat_clean |>
+    dplyr::group_by(Date) |>
+    dplyr::summarise(
+      `Max_CO(ppm)`          = mean(`Max_CO(ppm)`, na.rm = TRUE),
+      `Mean_PM2.5(ug/m3_LC)` = mean(`Mean_PM2.5(ug/m3_LC)`, na.rm = TRUE),
+      `Max_O3(ppm)`          = mean(`Max_O3(ppm)`, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  return(dat_daily)
+}
+```
+
+
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(ggplot2)
+# run function on raw data
+aq2018 <- clean_aq(aq2018_raw) |> mutate(year = 2018)
+aq2019 <- clean_aq(aq2019_raw) |> mutate(year = 2019)
+aq2020 <- clean_aq(aq2020_raw) |> mutate(year = 2020)
+
+#bind three datasets
+aq_all <- bind_rows(aq2018, aq2019, aq2020) |>
+  mutate(
+    month_num = month(Date),
+    month = factor(month_num, levels = 1:12, labels = month.abb)
+  )
+
+# view dataset
+head(aq_all)
+```
+```{r}
+# plot 1
+plot1_df <- aq_all |>
+  select(month, `Max_CO(ppm)`, `Max_O3(ppm)`) |>
+  pivot_longer(
+    cols = c(`Max_CO(ppm)`, `Max_O3(ppm)`),
+    names_to = "pollutant_raw",
+    values_to = "value"
+  ) |>
+  # nice labels for legend
+  mutate(
+    pollutant = dplyr::recode(
+      pollutant_raw,
+      "Max_CO(ppm)" = "CO (ppm)",
+      "Max_O3(ppm)" = "O3 (ppm)"
+    )
+  ) |>
+  # calculate mean & construct 95% confidence interval
+  group_by(month, pollutant) |>
+  summarise(
+    mean = mean(value, na.rm = TRUE),
+    sd   = sd(value, na.rm = TRUE),
+    n      = sum(!is.na(value)),          # number of non-missing days
+    se     = sd / sqrt(n),                # standard error
+    t_crit = qt(0.975, df = n - 1),       # t critical value for 95% CI
+    lower  = mean - t_crit * se,          # lower CI bound
+    upper  = mean + t_crit * se,          # upper CI bound
+    .groups = "drop"
+  )
+# plot monthly average CO and O3 & CI
+ggplot(plot1_df, aes(x = month, y = mean,
+                     color = pollutant, group = pollutant)) +
+  geom_line(linewidth = 1) +
+    # Points at the monthly means
+  geom_point(size = 2) +
+    # 95% confidence interval error bars
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.15) +
+  labs(
+    x = "Month",
+    y = "Average concentration",
+    color = "Pollutant",
+    title = "Monthly Average CO and O3 Concentrations",
+    subtitle = "averaged over 2018–2020; error bars show 95% confidence intervals"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "top"
+  )
+
+
+```
+```{r}
+# plot 2
+# Summarise PM2.5 by year and month.
+pm_monthly <- aq_all %>%
+  group_by(year, month) %>%                       # group by year and calendar month
+  summarise(
+    # Compute the monthly average PM2.5 across days in that month and year
+    mean_pm25 = mean(`Mean_PM2.5(ug/m3_LC)`, na.rm = TRUE),
+    .groups   = "drop"
+  )
+
+## ----plot2-pm25, fig.height=4.5, fig.width=7-----------------------------
+ggplot(pm_monthly,
+       aes(x = month, y = mean_pm25,
+           color = factor(year), group = year)) +
+  geom_line(linewidth = 1) +             # line to show trends by year
+  geom_point(size = 2) +                 # points at each month
+  labs(
+    x = "Month",
+    y = "Average PM2.5 (µg/m³, LC)",
+    color = "Year",
+    title = "Monthly Average PM2.5 by Year"
+  ) +
+  scale_color_manual(
+    values = c(
+      "2018" = "#00CED1",   
+      "2019" = "#0000CD",   # orange
+      "2020" = "#AB82FF"    # purple
+    )
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "top"
+  )
 ```
