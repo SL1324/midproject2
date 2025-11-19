@@ -6,46 +6,50 @@ output: word_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(
+  echo    = FALSE,  # HIDE all code in the FINAL document
+  message = FALSE,
+  warning = FALSE
+)
+
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(ggplot2)
 ```
 
 ```{r}
 #git package
-install.packages("usethis")
 library(usethis)
 ```
 
 ```{r}
 #  Open GitHub in your browser to create a new PAT
-usethis::create_github_token()
+# usethis::create_github_token()
 
 ```
-```{r}
+```{r, echo = FALSE}
 #  Save the new token
-gitcreds::gitcreds_set()
+# gitcreds::gitcreds_set()
 # Paste the token when prompted, press Enter
 ```
 
-```{r}
+```{r echo = FALSE}
 # create new repo in git
-usethis::use_github(private = FALSE)
+# usethis::use_github(private = FALSE)
 ```
-```{r}
+```{r echo = FALSE}
 # check git status
-usethis::git_sitrep()
+# usethis::git_sitrep()
 ```
 
-```{r}
+```{r echo = FALSE}
 #read data files
 aq2018_raw <- read.csv("/Users/lushan/DUke/R-bios721/data_721mid2/AQ_2018.csv")
 aq2019_raw <- read.csv("/Users/lushan/DUke/R-bios721/data_721mid2/AQ_2019.csv")
 aq2020_raw <- read.csv("/Users/lushan/DUke/R-bios721/data_721mid2/AQ_2020.csv")
 ```
-```{r}
-# show dataset
-show(aq2018_raw)
-```
-```{r}
+```{r echo = FALSE}
 #data clearning function
 clean_aq <- function(dat) {
   
@@ -88,11 +92,7 @@ clean_aq <- function(dat) {
 
 
 
-```{r}
-library(dplyr)
-library(lubridate)
-library(tidyr)
-library(ggplot2)
+```{r echo = FALSE}
 # run function on raw data
 aq2018 <- clean_aq(aq2018_raw) |> mutate(year = 2018)
 aq2019 <- clean_aq(aq2019_raw) |> mutate(year = 2019)
@@ -105,10 +105,8 @@ aq_all <- bind_rows(aq2018, aq2019, aq2020) |>
     month = factor(month_num, levels = 1:12, labels = month.abb)
   )
 
-# view dataset
-head(aq_all)
 ```
-```{r}
+```{r echo = FALSE}
 # plot 1
 plot1_df <- aq_all |>
   select(month, `Max_CO(ppm)`, `Max_O3(ppm)`) |>
@@ -159,7 +157,7 @@ ggplot(plot1_df, aes(x = month, y = mean,
 
 
 ```
-```{r}
+```{r echo = FALSE}
 # plot 2
 # Summarise PM2.5 by year and month.
 pm_monthly <- aq_all %>%
@@ -170,7 +168,6 @@ pm_monthly <- aq_all %>%
     .groups   = "drop"
   )
 
-## ----plot2-pm25, fig.height=4.5, fig.width=7-----------------------------
 ggplot(pm_monthly,
        aes(x = month, y = mean_pm25,
            color = factor(year), group = year)) +
