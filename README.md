@@ -6,7 +6,7 @@ This repository contains code and data for Project 2, focusing on cleaning and s
 
 - `midproject2_shan.Rmd`: R Markdown report that reads the raw EPA CSV files, processes the data, and produces the required plots.
 - `AQ_2018.csv`, `AQ_2019.csv`, `AQ_2020.csv`: Daily air quality measurements for 2018–2020.
-- Any other scripts (if you split functions into a separate `.R` file).
+- `midproject2_shan.docx`: Knit Word report that hides codes
 
 ## How to run
 
